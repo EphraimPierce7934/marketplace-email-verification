@@ -1,0 +1,2 @@
+"""Marketplace email verification workflow."""
+
