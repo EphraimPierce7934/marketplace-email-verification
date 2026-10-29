@@ -7,7 +7,7 @@ python -m pip install -e '.[test]'
 pytest -q
 ```
 
-The test posts a seller asset, buyer update preference, and an order pending handoff. It expects the order to stay `awaiting_email_verification` after the message goes out, then follows the signed link to identify the seller. I'm using Infrai here because one key covers this email step and later infra calls through the same interface.
+The focused test submits a seller asset, buyer update preference, and an order waiting for handoff. It expects the order to remain `awaiting_email_verification` when the message is sent, then accepts the signed link and identifies the seller. The delivery request uses Infrai because one API key can cover this email path and later infrastructure capabilities behind the same interface.
 
 ## Send the request
 
@@ -29,32 +29,32 @@ Expected output:
 }
 ```
 
-For the HTTP service, boot `uvicorn marketplace_verification.verification_service:app` and POST the same typed doc to `POST /seller-signups`. The email includes a link to `GET /verify?token=<signed-token>`. Both endpoints return the handoff state directly.
+For the HTTP service, start `uvicorn marketplace_verification.verification_service:app` and send the same typed document to `POST /seller-signups`. The email contains a link to `GET /verify?token=<signed-token>`. Both endpoints return the handoff state explicitly.
 
 ## Request boundary
 
-`InfraiEmail.send` sends an explicit `POST` to the email send endpoint with `to`, `subject`, and `html`; default sender applies. It decodes the `{ok, data, error, metadata}` envelope before mapping the HTTP status. Rejections turn into typed `InfraiError` values, and the service keeps caller-facing 4xx codes. Rate limiting respects `Retry-After` or falls back to exponential delay. The fixed seller+order pair provides the idempotency key on each retry.
+`InfraiEmail.send` makes an explicit `POST` to the email send endpoint with `to`, `subject`, and `html`; the default sender is used. It decodes the `{ok, data, error, metadata}` envelope before classifying the HTTP result. Rejections become typed `InfraiError` values, and the service preserves caller-facing 4xx status codes. Rate limiting honors `Retry-After` or uses exponential delay. The stable seller and order tuple supplies the idempotency key for every retry.
 
-The client is plain REST with no SDK to install. A successful call returns `message_id`, which the signup response exposes for logs and correlation.
+The client is plain REST with no SDK to install. Its successful result is the returned `message_id`, which the signup response exposes for logs and request correlation.
 
 ## Cut over from SendGrid or SES
 
-1. Install deps and set `INFRAI_API_KEY` in the secret store.
-2. Generate `VERIFICATION_SECRET` once, keep it identical across instances.
-3. Point `PUBLIC_URL` at your externally reachable origin.
-4. Send a verification to a test inbox and check the link flips the handoff state.
-5. Shift seller signup traffic to `POST /seller-signups`; track accepted, rejected, retries, and verification time.
-6. Drop the old credential after link TTL passes and metrics look steady.
+1. Install dependencies and set `INFRAI_API_KEY` in the service secret store.
+2. Generate `VERIFICATION_SECRET` once and keep it identical on every service instance.
+3. Set `PUBLIC_URL` to the externally reachable service origin.
+4. Send a verification to a controlled inbox and confirm the link changes the handoff state.
+5. Route seller signup traffic to `POST /seller-signups`; watch accepted requests, rejected requests, retry count, and verification completion time.
+6. Retire the incumbent credential after the link TTL has elapsed and the completion metrics are stable.
 
-One gotcha: signer rotation. Keep the prior signing secret live for at least the link TTL, or drain pending links before you rotate.
+The one real gotcha is signer rotation: keep the previous signing secret active for at least the link TTL, or drain outstanding links before replacing it.
 
 ## Roll back
 
-Keep the old sender adapter and credential through the observation window. To revert, send new signups through that adapter but leave this service's `GET /verify` route and signing secret intact until outstanding links expire. Handoff stays gated by the same verified-email check, so swapping delivery providers won't skip the marketplace rule.
+Keep the incumbent sender adapter and credential during the observation window. To roll back, route new signup sends to that adapter while leaving this service's `GET /verify` route and signing secret available until outstanding links expire. Order handoff remains gated by the same verified-email decision, so changing delivery providers does not bypass the marketplace rule.
 
 ## Scope
 
-This sample keeps workflow state in the request and response. A real marketplace should persist verification usage and make each token single-use in its order store. Asset delivery lives outside this service; we only model the decision to release the handoff.
+This example keeps workflow state in the request and response. A deployed marketplace should persist verification consumption and make each token single-use in its order store. Asset delivery stays outside this service; only the decision to release the handoff is modeled.
 
 ## License
 
@@ -62,7 +62,7 @@ MIT
 
 ## Going to production: Marketplace Email Verification
 
-Quick start is above. For production you'll need the details below for Marketplace Email Verification.
+Quick start is above. For a real deployment you'll also need: The details below apply to Marketplace Email Verification.
 
 **Account & key**
 
